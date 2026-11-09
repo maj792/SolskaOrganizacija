@@ -1,12 +1,12 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 
 function getDevMenuHint() {
@@ -29,33 +29,160 @@ function getDevMenuHint() {
 }
 
 export default function HomeScreen() {
+  const [naloge, setNaloge] = useState<any[]>([]);
+
+  
+const spremeniStatus = async (id: string) => {
+  const noveNaloge = naloge.map((naloga) =>
+    naloga.id === id
+      ? { ...naloga, opravljeno: !naloga.opravljeno }
+      : naloga
+  );
+
+  setNaloge(noveNaloge);
+  await AsyncStorage.setItem('naloge', JSON.stringify(noveNaloge));
+};
+
+const izbrisiNalogo = async (id: string) => {
+  const noveNaloge = naloge.filter((naloga) => naloga.id !== id);
+
+  await AsyncStorage.setItem('naloge', JSON.stringify(noveNaloge));
+  setNaloge(noveNaloge);
+};
+
+const jeZamujena = (naloga: any) => {
+  if (naloga.opravljeno) return false;
+
+  const [dan, mesec, leto] = naloga.rok.split('.').map(Number);
+  const datumRoka = new Date(leto, mesec - 1, dan);
+  datumRoka.setHours(23, 59, 59, 999);
+
+  return new Date() > datumRoka;
+};
+
+
+useFocusEffect(
+  useCallback(() => {
+    const naloziNaloge = async () => {
+      const podatki = await AsyncStorage.getItem('naloge');
+      setNaloge(podatki ? JSON.parse(podatki) : []);
+    };
+
+    naloziNaloge();
+  }, [])
+);
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
           <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
+            Moje šolske naloge
           </ThemedText>
         </ThemedView>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
         <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+  <ThemedText type="subtitle">
+    Moje naloge
+  </ThemedText>
+  {naloge.length === 0 && (
+  <ThemedText>
+    Trenutno nimaš dodanih nalog.
+  </ThemedText>
+)}
+{naloge.filter((naloga) => !naloga.opravljeno && !jeZamujena(naloga)).map((naloga) => (
+<Pressable
+  key={naloga.id}
+  style={styles.card}
+  onPress={() => spremeniStatus(naloga.id)}
+>
+    <ThemedText type="subtitle">
+      {naloga.ime}
+    </ThemedText>
+    <ThemedText>
+      Predmet: {naloga.predmet}
+    </ThemedText>
+  <ThemedText>
+    Rok: {naloga.rok}
+  </ThemedText>
+</Pressable>
+))}
+  <ThemedView style={styles.card}>
+  <ThemedText type="subtitle">
+    Za narediti
+  </ThemedText>
+  <ThemedText type="title">
+   {naloge.filter((naloga) => !naloga.opravljeno && !jeZamujena(naloga)).length}
+  </ThemedText>
+</ThemedView>
+</ThemedView>
+<ThemedView style={styles.card}>
+  <ThemedText type="subtitle">
+    Opravljeno
+  </ThemedText>
+  <ThemedText type="title">
+    {naloge.filter((naloga) => naloga.opravljeno).length}
+  </ThemedText>
+  
+{naloge.filter((naloga) => naloga.opravljeno).map((naloga) => (
+  <ThemedView key={naloga.id} style={styles.card}>
+    <ThemedText type="subtitle">
+      {naloga.ime}
+    </ThemedText>
 
-        {Platform.OS === 'web' && <WebBadge />}
+    <ThemedText>
+      Predmet: {naloga.predmet}
+    </ThemedText>
+
+    <Pressable onPress={() => spremeniStatus(naloga.id)}>
+      <ThemedText>Vrni med neopravljene</ThemedText>
+    </Pressable>
+
+    <Pressable onPress={() => izbrisiNalogo(naloga.id)}>
+      <ThemedText style={{ color: 'red' }}>
+        Izbriši
+      </ThemedText>
+    </Pressable>
+  </ThemedView>
+))}
+
+</ThemedView>
+
+<ThemedView style={styles.card}>
+  <ThemedText type="subtitle">
+    Zamujeno
+  </ThemedText>
+  <ThemedText type="title">
+    {naloge.filter((naloga) => jeZamujena(naloga)).length}
+  </ThemedText>
+  
+{naloge.filter((naloga) => jeZamujena(naloga)).map((naloga) => (
+  <ThemedView key={naloga.id} style={styles.card}>
+    <ThemedText type="subtitle">
+      {naloga.ime}
+    </ThemedText>
+
+    <ThemedText>
+      Predmet: {naloga.predmet}
+    </ThemedText>
+
+    <ThemedText>
+      Rok: {naloga.rok}
+    </ThemedText>
+
+    <Pressable onPress={() => spremeniStatus(naloga.id)}>
+      <ThemedText>Označi kot opravljeno</ThemedText>
+    </Pressable>
+
+    <Pressable onPress={() => izbrisiNalogo(naloga.id)}>
+      <ThemedText style={{ color: 'red' }}>
+        Izbriši
+      </ThemedText>
+    </Pressable>
+  </ThemedView>
+))}
+
+</ThemedView>
+
       </SafeAreaView>
     </ThemedView>
   );
@@ -69,6 +196,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    paddingTop: 70,
     paddingHorizontal: Spacing.four,
     alignItems: 'center',
     gap: Spacing.three,
@@ -78,7 +206,6 @@ const styles = StyleSheet.create({
   heroSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
   },
@@ -95,4 +222,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
   },
+  card: {
+  padding: 20,
+  borderRadius: 12,
+  marginTop: 15,
+  alignItems: 'center',
+},
 });
